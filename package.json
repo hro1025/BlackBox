@@ -1,0 +1,17 @@
+{
+  "name": "blackbox",
+  "type": "module",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "lint": "oxlint --type-aware"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "oxlint": "latest",
+    "oxlint-tsgolint": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  }
+}
