@@ -19,7 +19,7 @@ test("2.5 missing-field test", async () => {
   expect(() => parseMemoryInfo(text)).toThrow("MemAvailable");
 });
 
-test("2.6 edge case should parse", async () => {
+test("2.6 no trailing newline should parse", async () => {
   const path = `${import.meta.dirname}/../../fixtures/meminfo-no-newline.txt`;
   const text = await Bun.file(path).text();
 
@@ -28,6 +28,6 @@ test("2.6 edge case should parse", async () => {
   expect(result.totalKb).toBe(7915908);
 });
 
-test("2.6 edge case should throw", () => {
+test("2.7 empty input should throw", () => {
   expect(() => parseMemoryInfo("")).toThrow("MemTotal");
 });

@@ -42,13 +42,13 @@ docs/
 
 All commands run from the repository root.
 
-| Task | Command |
-| --- | --- |
-| Install dependencies | `bun install` |
-| Run the agent | `bun run packages/agent/index.ts` |
-| Run tests | `bun test` |
-| Type check | `bunx tsc --noEmit` |
-| Lint | `bun run lint` |
+| Task                 | Command                           |
+| -------------------- | --------------------------------- |
+| Install dependencies | `bun install`                     |
+| Run the agent        | `bun run packages/agent/index.ts` |
+| Run tests            | `bun test`                        |
+| Type check           | `bunx tsc --noEmit`               |
+| Lint                 | `bun run lint`                    |
 
 ## Stack
 
