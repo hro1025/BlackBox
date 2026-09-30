@@ -1,51 +1,26 @@
-import type { MemoryStats } from "@blackbox/shared";
+import type { MemorySample } from "@blackbox/shared";
+import { parseMemoryInfo } from "./src/collectors/memory";
 
-const file = Bun.file("/proc/meminfo");
-const text = await file.text();
+const SAMPLE_INTERVAL_MS = 1000;
 
-function parseMemoryInfo(text: string): MemoryStats {
-  const lines = text.split("\n");
+async function recordMemory(): Promise<void> {
+  try {
+    const file = Bun.file("/proc/meminfo");
+    const text = await file.text();
 
-  const values: Record<string, number> = {};
+    const sample: MemorySample = {
+      ...parseMemoryInfo(text),
+      sampledAtMs: Date.now(),
+    };
 
-  for (const line of lines) {
-    const [key, value] = line.replace(/:/, " ").trim().split(/\s+/, 2);
-
-    if (key !== undefined && value !== undefined) {
-      values[key] = Number.parseInt(value);
+    console.log(sample);
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to read memory: ${error.message}`);
+    } else {
+      console.error("Failed to read memory:", error);
     }
   }
-
-  const requiredFields = [
-    "MemTotal",
-    "MemAvailable",
-    "MemFree",
-    "SwapTotal",
-    "SwapFree",
-  ];
-
-  const missingFields = requiredFields.filter(
-    (field) => values[field] === undefined,
-  );
-  if (missingFields.length > 0) {
-    throw new Error(`meminfo is missing: ${missingFields.join(", ")}`);
-  }
-
-  return {
-    totalKb: values["MemTotal"]!,
-    availableKb: values["MemAvailable"]!,
-    freeKb: values["MemFree"]!,
-    swapTotalKb: values["SwapTotal"]!,
-    swapFreeKb: values["SwapFree"]!,
-  };
 }
-try {
-  const stats = parseMemoryInfo(text);
-  console.log(stats);
-} catch (error) {
-  if (error instanceof Error) {
-    console.error(`Failed to read memory: ${error.message}`);
-  } else {
-    console.error("Failed to read memory:", error);
-  }
-}
+
+setInterval(() => void recordMemory(), SAMPLE_INTERVAL_MS);
