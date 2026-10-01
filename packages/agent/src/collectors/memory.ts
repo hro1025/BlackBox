@@ -1,6 +1,6 @@
 import type { MemoryStats } from "@blackbox/shared";
 
-export function parseMemoryInfo(text: string): MemoryStats {
+export function parserMemoryInfo(text: string): MemoryStats {
   const lines = text.split("\n");
 
   const values: Record<string, number> = {};

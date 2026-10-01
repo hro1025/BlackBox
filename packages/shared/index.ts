@@ -1,4 +1,3 @@
-/** Memory values as read from /proc/meminfo, all in kB. */
 export interface MemoryStats {
   totalKb: number;
   availableKb: number;
@@ -7,7 +6,48 @@ export interface MemoryStats {
   swapFreeKb: number;
 }
 
-/** One memory measurement, stamped with when the agent took it. */
 export type MemorySample = MemoryStats & {
   sampledAtMs: number;
 };
+
+export interface CpuTimes {
+  user: number;
+  nice: number;
+  system: number;
+  idle: number;
+  iowait: number;
+  irq: number;
+  softirq: number;
+  steal: number;
+}
+
+export function cpuUsagePercent(previous: CpuTimes, current: CpuTimes): number {
+  const previousIdle = previous.idle + previous.iowait;
+  const previousBusy =
+    previous.user +
+    previous.nice +
+    previous.system +
+    previous.irq +
+    previous.softirq +
+    previous.steal;
+
+  const currentIdle = current.idle + current.iowait;
+  const currentBusy =
+    current.user +
+    current.nice +
+    current.system +
+    current.irq +
+    current.softirq +
+    current.steal;
+
+  const previousTotal = previousIdle + previousBusy;
+  const currentTotal = currentIdle + currentBusy;
+
+  const totalDelta = currentTotal - previousTotal;
+  const idleDelta = currentIdle - previousIdle;
+
+  if (totalDelta === 0) {
+    return 0;
+  }
+  return ((totalDelta - idleDelta) / totalDelta) * 100;
+}
