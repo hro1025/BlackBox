@@ -6,7 +6,7 @@ An agent on every machine reads system state from `/proc` and `/sys`, buffers it
 
 ## Status
 
-**Current milestone:** 3 — CPU usage
+**Current milestone:** 4 - More collectors
 
 ## Progress
 

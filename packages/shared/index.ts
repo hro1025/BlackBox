@@ -21,6 +21,12 @@ export interface CpuTimes {
   steal: number;
 }
 
+export interface LoadAvg {
+  load1: number;
+  load5: number;
+  load15: number;
+}
+
 export function cpuUsagePercent(previous: CpuTimes, current: CpuTimes): number {
   const previousIdle = previous.idle + previous.iowait;
   const previousBusy =
