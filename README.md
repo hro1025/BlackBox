@@ -12,7 +12,7 @@ An agent on every machine reads system state from `/proc` and `/sys`, buffers it
 
 - [x] **1. Memory reader** — read `/proc/meminfo` on an interval
 - [x] **2. Parser tests** — modules, fixtures, `bun test`
-- [ ] **3. CPU usage** — counters and deltas from `/proc/stat`
+- [x] **3. CPU usage** — counters and deltas from `/proc/stat`
 - [ ] **4. More collectors** — load, network, temperature
 - [ ] **5. Local recording** — ring buffer on disk
 - [ ] **6. Lifecycle events** — crash, stop and reboot detection
