@@ -21,6 +21,11 @@ export interface CpuTimes {
   steal: number;
 }
 
+export interface ThermalZone {
+  name: string;
+  celsius: number;
+}
+
 export interface LoadAvg {
   load1: number;
   load5: number;
