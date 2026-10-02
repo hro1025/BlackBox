@@ -26,6 +26,15 @@ export interface LoadAvg {
   load5: number;
   load15: number;
 }
+export type LoadAvgSample = LoadAvg & {
+  sampledAtMs: number;
+};
+
+export interface NetInterface {
+  name: string;
+  bytesIn: number;
+  bytesOut: number;
+}
 
 export function cpuUsagePercent(previous: CpuTimes, current: CpuTimes): number {
   const previousIdle = previous.idle + previous.iowait;

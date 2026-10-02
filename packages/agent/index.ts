@@ -1,7 +1,8 @@
-import type { MemorySample, CpuTimes } from "@blackbox/shared";
+import type { MemorySample, CpuTimes, LoadAvgSample } from "@blackbox/shared";
 import { cpuUsagePercent } from "@blackbox/shared";
 import { parserMemoryInfo } from "./src/collectors/memory";
 import { parserCpuInfo } from "./src/collectors/cpu";
+import { parserLoadAvgInfo } from "./src/collectors/loadavg";
 
 const SAMPLE_INTERVAL_MS = 1000;
 let previousCpu: CpuTimes | undefined;
@@ -28,8 +29,6 @@ async function recordCpu(): Promise<void> {
   }
 }
 
-setInterval(() => void recordCpu(), SAMPLE_INTERVAL_MS);
-
 async function recordMemory(): Promise<void> {
   try {
     const file = Bun.file("/proc/meminfo");
@@ -50,4 +49,25 @@ async function recordMemory(): Promise<void> {
   }
 }
 
+async function recordLoadAvg(): Promise<void> {
+  try {
+    const file = Bun.file("/proc/loadavg");
+    const text = await file.text();
+
+    const sample: LoadAvgSample = {
+      ...parserLoadAvgInfo(text),
+      sampledAtMs: Date.now(),
+    };
+    console.log(sample);
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to read loadavg: ${error.message}`);
+    } else {
+      console.error("Failed to read loadavg:", error);
+    }
+  }
+}
+
+setInterval(() => void recordCpu(), SAMPLE_INTERVAL_MS);
 setInterval(() => void recordMemory(), SAMPLE_INTERVAL_MS);
+setInterval(() => void recordLoadAvg(), SAMPLE_INTERVAL_MS);
