@@ -1,6 +1,6 @@
 import type { LoadAvg } from "@blackbox/shared";
 
-export function parserLoadAvgInfo(text: string): LoadAvg {
+export function parseLoadAvgInfo(text: string): LoadAvg {
   const lines = text.split("\n");
 
   const firstLine = lines[0];

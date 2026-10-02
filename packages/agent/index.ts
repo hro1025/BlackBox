@@ -5,10 +5,10 @@ import type {
   NetSample,
 } from "@blackbox/shared";
 import { bytesPerSecond, cpuUsagePercent } from "@blackbox/shared";
-import { parserCpuInfo } from "./src/collectors/cpu";
-import { parserLoadAvgInfo } from "./src/collectors/loadavg";
-import { parserMemoryInfo } from "./src/collectors/memory";
-import { parserNetDevInfo } from "./src/collectors/netdev";
+import { parseCpuInfo } from "./src/collectors/cpu";
+import { parseLoadAvgInfo } from "./src/collectors/loadavg";
+import { parseMemoryInfo } from "./src/collectors/memory";
+import { parseNetDevInfo } from "./src/collectors/netdev";
 
 const SAMPLE_INTERVAL_MS = 1000;
 
@@ -20,7 +20,7 @@ async function recordCpu(): Promise<void> {
     const file = Bun.file("/proc/stat");
     const text = await file.text();
 
-    const current = parserCpuInfo(text);
+    const current = parseCpuInfo(text);
 
     if (previousCpu !== undefined) {
       const usagePercent = cpuUsagePercent(previousCpu, current);
@@ -43,7 +43,7 @@ async function recordMemory(): Promise<void> {
     const text = await file.text();
 
     const sample: MemorySample = {
-      ...parserMemoryInfo(text),
+      ...parseMemoryInfo(text),
       sampledAtMs: Date.now(),
     };
 
@@ -63,7 +63,7 @@ async function recordLoadAvg(): Promise<void> {
     const text = await file.text();
 
     const sample: LoadAvgSample = {
-      ...parserLoadAvgInfo(text),
+      ...parseLoadAvgInfo(text),
       sampledAtMs: Date.now(),
     };
 
@@ -83,7 +83,7 @@ async function recordNetwork(): Promise<void> {
     const text = await file.text();
 
     const current: NetSample = {
-      interfaces: parserNetDevInfo(text),
+      interfaces: parseNetDevInfo(text),
       sampledAtMs: Date.now(),
     };
 

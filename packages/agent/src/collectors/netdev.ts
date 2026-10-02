@@ -1,6 +1,6 @@
 import type { NetInterface } from "@blackbox/shared";
 
-export function parserNetDevInfo(text: string): NetInterface[] {
+export function parseNetDevInfo(text: string): NetInterface[] {
   const lines = text.split("\n");
   const sliceLines = lines.slice(2);
 

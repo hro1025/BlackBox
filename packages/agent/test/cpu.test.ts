@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { parserCpuInfo } from "../src/collectors/cpu";
+import { parseCpuInfo } from "../src/collectors/cpu";
 
 test("3.4 test the parser", async () => {
   const path = `${import.meta.dirname}/../fixtures/stat.txt`;
   const text = await Bun.file(path).text();
 
-  const result = parserCpuInfo(text);
+  const result = parseCpuInfo(text);
 
   expect(result.user).toBe(215473);
   expect(result.nice).toBe(116);

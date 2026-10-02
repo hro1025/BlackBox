@@ -1,6 +1,6 @@
 import type { CpuTimes } from "@blackbox/shared";
 
-export function parserCpuInfo(text: string): CpuTimes {
+export function parseCpuInfo(text: string): CpuTimes {
   const lines = text.split("\n");
 
   const firstLine = lines[0];
