@@ -36,6 +36,25 @@ export interface NetInterface {
   bytesOut: number;
 }
 
+export type NetSample = {
+  interfaces: NetInterface[];
+  sampledAtMs: number;
+};
+
+export function bytesPerSecond(
+  previousBytes: number,
+  currentBytes: number,
+  elapsedMs: number,
+): number | undefined {
+  const byteDelta = currentBytes - previousBytes;
+
+  if (byteDelta < 0 || elapsedMs <= 0) {
+    return undefined;
+  }
+
+  return byteDelta / (elapsedMs / 1000);
+}
+
 export function cpuUsagePercent(previous: CpuTimes, current: CpuTimes): number {
   const previousIdle = previous.idle + previous.iowait;
   const previousBusy =
