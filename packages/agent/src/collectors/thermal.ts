@@ -1,5 +1,3 @@
-import type { ThermalZone } from "@blackbox/shared";
-
 export function parseTempCelsius(text: string): number {
   const millidegrees = Number.parseInt(text.trim());
 
