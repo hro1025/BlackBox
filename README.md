@@ -1,19 +1,27 @@
 # BlackBox
 
+- [BlackBox](#blackbox)
+  - [Status](#status)
+  - [Progress](#progress)
+  - [Structure](#structure)
+  - [Commands](#commands)
+  - [Stack](#stack)
+  <!--toc:end-->
+
 A system flight recorder written in TypeScript and Bun.
 
 An agent on every machine reads system state from `/proc` and `/sys`, buffers it locally on disk, and streams it to a central ingest server over WebSocket. The server stores the data, evaluates rules, and serves a dashboard that shows history, live data, and the events leading up to any incident.
 
 ## Status
 
-**Current milestone:** 4 - More collectors
+**Current milestone:** 5 -- Local recording
 
 ## Progress
 
 - [x] **1. Memory reader** — read `/proc/meminfo` on an interval
 - [x] **2. Parser tests** — modules, fixtures, `bun test`
 - [x] **3. CPU usage** — counters and deltas from `/proc/stat`
-- [ ] **4. More collectors** — load, network, temperature
+- [x] **4. More collectors** — load, network, temperature
 - [ ] **5. Local recording** — ring buffer on disk
 - [ ] **6. Lifecycle events** — crash, stop and reboot detection
 - [ ] **7. Shared protocol** — zod schemas, message union
