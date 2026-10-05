@@ -1,6 +1,7 @@
 import type { ThermalZone } from "@blackbox/shared";
 import { readdir } from "node:fs/promises";
 import { parseTempCelsius } from "../collectors/thermal";
+import { addSample } from "../storage/buffer";
 
 const THERMAL_PATH = "/sys/class/thermal";
 
@@ -31,8 +32,11 @@ export async function recordThermal(): Promise<void> {
         }
       }
     }
-
-    console.log({ zones, sampledAtMs: Date.now() });
+    addSample({
+      kind: "thermal",
+      sampledAtMs: Date.now(),
+      payload: zones,
+    });
   } catch (error) {
     if (error instanceof Error) {
       console.error(`Failed to read thermal: ${error.message}`);

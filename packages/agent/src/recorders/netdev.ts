@@ -1,6 +1,7 @@
 import type { NetSample } from "@blackbox/shared";
 import { bytesPerSecond } from "@blackbox/shared";
 import { parseNetDevInfo } from "../collectors/netdev";
+import { addSample } from "../storage/buffer";
 
 let previousNet: NetSample | undefined;
 
@@ -13,6 +14,12 @@ export async function recordNetwork(): Promise<void> {
       interfaces: parseNetDevInfo(text),
       sampledAtMs: Date.now(),
     };
+
+    addSample({
+      kind: "netdev",
+      sampledAtMs: current.sampledAtMs,
+      payload: current.interfaces,
+    });
 
     const previous = previousNet;
     if (previous !== undefined) {
@@ -40,12 +47,7 @@ export async function recordNetwork(): Promise<void> {
           continue;
         }
 
-        console.log({
-          name: iface.name,
-          bytesInPerSecond,
-          bytesOutPerSecond,
-          sampledAtMs: current.sampledAtMs,
-        });
+        console.log({ name: iface.name, bytesInPerSecond, bytesOutPerSecond });
       }
     }
 

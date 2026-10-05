@@ -1,17 +1,16 @@
-import type { LoadAvgSample } from "@blackbox/shared";
 import { parseLoadAvgInfo } from "../collectors/loadavg";
+import { addSample } from "../storage/buffer";
 
 export async function recordLoadAvg(): Promise<void> {
   try {
     const file = Bun.file("/proc/loadavg");
     const text = await file.text();
 
-    const sample: LoadAvgSample = {
-      ...parseLoadAvgInfo(text),
+    addSample({
+      kind: "loadavg",
       sampledAtMs: Date.now(),
-    };
-
-    console.log(sample);
+      payload: parseLoadAvgInfo(text),
+    });
   } catch (error) {
     if (error instanceof Error) {
       console.error(`Failed to read loadavg: ${error.message}`);

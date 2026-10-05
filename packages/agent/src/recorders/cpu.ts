@@ -1,6 +1,7 @@
 import type { CpuTimes } from "@blackbox/shared";
 import { cpuUsagePercent } from "@blackbox/shared";
 import { parseCpuInfo } from "../collectors/cpu";
+import { addSample } from "../storage/buffer";
 
 let previousCpu: CpuTimes | undefined;
 
@@ -11,9 +12,15 @@ export async function recordCpu(): Promise<void> {
 
     const current = parseCpuInfo(text);
 
+    addSample({
+      kind: "cpu",
+      sampledAtMs: Date.now(),
+      payload: current,
+    });
+
     if (previousCpu !== undefined) {
       const usagePercent = cpuUsagePercent(previousCpu, current);
-      console.log({ usagePercent, sampledAtMs: Date.now() });
+      console.log({ usagePercent });
     }
 
     previousCpu = current;
