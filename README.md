@@ -13,7 +13,7 @@ An agent on every machine reads system state from `/proc` and `/sys`, buffers it
 - [x] **3. CPU usage** — counters and deltas from `/proc/stat`
 - [x] **4. More collectors** — load, network, temperature
 - [x] **5. Local recording** — ring buffer on disk
-- [ ] **6. Lifecycle events** — crash, stop and reboot detection
+- [x] **6. Lifecycle events** — crash, stop and reboot detection
 - [ ] **7. Shared protocol** — zod schemas, message union
 - [ ] **8. Ingest server** — WebSocket, hello, authentication
 - [ ] **9. Agent connection** — reconnect with backoff and jitter
