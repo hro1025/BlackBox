@@ -1,4 +1,4 @@
-import type { CpuTimes } from "./types";
+import type { CpuTimes } from "./schemas/cpu.ts";
 
 export function bytesPerSecond(
   previousBytes: number,
