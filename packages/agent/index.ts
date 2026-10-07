@@ -3,9 +3,14 @@ import { recordLoadAvg } from "./src/recorders/loadavg";
 import { recordMemory } from "./src/recorders/memory";
 import { recordNetwork } from "./src/recorders/netdev";
 import { recordThermal } from "./src/recorders/thermal";
-import { flush } from "./src/storage/buffer";
-import { readBootId } from "./src/lifecycle/bootid";
-import { writeMarker } from "./src/lifecycle/marker";
+import { addSample, flush } from "./src/storage/buffer";
+import {
+  readBootId,
+  readLastBootId,
+  writeLastBootId,
+} from "./src/lifecycle/bootid";
+import { classifyStartup } from "./src/lifecycle/classify";
+import { deleteMarker, readMarker, writeMarker } from "./src/lifecycle/marker";
 
 const SAMPLE_INTERVAL_MS = 1000;
 const FLUSH_INTERVAL_MS = 1000;
@@ -20,6 +25,40 @@ try {
     console.error(`Failed to read boot id: ${error.message}`);
   } else {
     console.error("Failed to read boot id:", error);
+  }
+}
+
+async function checkStartup(currentBootId: string): Promise<void> {
+  try {
+    const marker = await readMarker();
+    const lastBootId = await readLastBootId();
+
+    if (lastBootId === undefined) {
+      console.log("Startup: first start");
+    } else {
+      const kind = classifyStartup(
+        marker !== undefined,
+        lastBootId !== currentBootId,
+      );
+      console.log(`Startup: ${kind}`);
+      addSample({
+        kind: "lifecycle",
+        sampledAtMs: Date.now(),
+        payload: { event: kind },
+      });
+    }
+
+    if (marker !== undefined) {
+      await deleteMarker();
+    }
+
+    await writeLastBootId(currentBootId);
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to check startup: ${error.message}`);
+    } else {
+      console.error("Failed to check startup:", error);
+    }
   }
 }
 
@@ -52,6 +91,10 @@ function recordAll(): void {
   void recordMemory();
   void recordNetwork();
   void recordThermal();
+}
+
+if (bootId !== undefined) {
+  await checkStartup(bootId);
 }
 
 process.on("SIGINT", requestStop);
