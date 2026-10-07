@@ -1,0 +1,107 @@
+import { timingSafeEqual } from "node:crypto";
+import { MessageSchema } from "@blackbox/shared";
+
+type ConnectionState = "authenticating" | "streaming" | "closed";
+
+type ConnectionData = {
+  state: ConnectionState;
+};
+
+const HELLO_TIMEOUT_MS = 5000;
+
+const AGENTS_PATH = `${import.meta.dir}/../agents.json`;
+
+// Safe: agents.json is written by the operator, not received from the network.
+const agentTokens = (await Bun.file(AGENTS_PATH).json()) as Record<
+  string,
+  string
+>;
+
+function isValidToken(agentId: string, token: string): boolean {
+  const expected = agentTokens[agentId];
+  if (expected === undefined) {
+    return false;
+  }
+
+  const expectedBytes = Buffer.from(expected);
+  const tokenBytes = Buffer.from(token);
+  if (expectedBytes.length !== tokenBytes.length) {
+    return false;
+  }
+
+  return timingSafeEqual(expectedBytes, tokenBytes);
+}
+
+export const server = Bun.serve({
+  port: 7070,
+  fetch(request, server): Response | undefined {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/agent") {
+      const upgraded = server.upgrade(request, {
+        data: { state: "authenticating" },
+      });
+      if (upgraded) {
+        return undefined;
+      }
+      return new Response("WebSocket upgrade failed", { status: 400 });
+    }
+
+    return new Response("Not found", { status: 404 });
+  },
+  websocket: {
+    data: {} as ConnectionData,
+    open(ws) {
+      console.log(`open ${ws.remoteAddress} ${ws.data.state}`);
+
+      setTimeout(() => {
+        if (ws.data.state === "authenticating") {
+          console.log(`hello timeout ${ws.remoteAddress}`);
+          ws.close(1008, "Hello timeout");
+        }
+      }, HELLO_TIMEOUT_MS);
+    },
+    message(ws, message) {
+      let raw: unknown;
+      try {
+        raw = JSON.parse(String(message));
+      } catch {
+        console.log(`invalid message from ${ws.remoteAddress}: not JSON`);
+        return;
+      }
+
+      const result = MessageSchema.safeParse(raw);
+      if (!result.success) {
+        console.log(`invalid message from ${ws.remoteAddress}: unknown shape`);
+        return;
+      }
+
+      const incoming = result.data;
+
+      if (ws.data.state === "authenticating") {
+        if (incoming.type !== "hello") {
+          ws.close(1008, "Expected hello");
+          return;
+        }
+
+        if (!isValidToken(incoming.agentId, incoming.token)) {
+          console.log(
+            `auth failed for ${incoming.agentId} from ${ws.remoteAddress}`,
+          );
+          ws.close(1008, "Invalid credentials");
+          return;
+        }
+
+        ws.data.state = "streaming";
+        console.log(`authenticated ${incoming.agentId}`);
+        return;
+      }
+    },
+    close(ws, code, reason) {
+      ws.data.state = "closed";
+      console.log(`close ${ws.remoteAddress} code=${code} reason=${reason}`);
+    },
+  },
+});
+
+console.log(`Listening on ${server.url.href}`);

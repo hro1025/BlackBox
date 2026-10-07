@@ -27,6 +27,9 @@
     },
     "packages/ingest": {
       "name": "@blackbox/ingest",
+      "dependencies": {
+        "@blackbox/shared": "workspace:*",
+      },
       "devDependencies": {
         "@types/bun": "latest",
       },
