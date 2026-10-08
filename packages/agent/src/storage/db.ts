@@ -22,6 +22,10 @@ type StoredRow = {
   payload: string;
 };
 
+type LastSequenceRow = {
+  lastSequence: number | null;
+};
+
 export type StoredSample = BufferedSample & {
   sequence: number;
 };
@@ -36,6 +40,10 @@ const deleteOldSamples = db.prepare(
 
 const selectSamplesAfter = db.prepare<StoredRow, [number]>(
   "SELECT sequence, kind, sampledAtMs, payload FROM samples WHERE sequence > ? ORDER BY sequence",
+);
+
+const selectLastSequence = db.prepare<LastSequenceRow, []>(
+  "SELECT MAX(sequence) AS lastSequence FROM samples",
 );
 
 export const insertSamples = db.transaction((samples: BufferedSample[]) => {
@@ -61,4 +69,14 @@ export function readSamplesAfter(afterSequence: number): StoredSample[] {
     sampledAtMs: row.sampledAtMs,
     payload: JSON.parse(row.payload) as unknown,
   }));
+}
+
+export function readLastSequence(): number {
+  const row = selectLastSequence.get();
+
+  if (row === null || row.lastSequence === null) {
+    return 0;
+  }
+
+  return row.lastSequence;
 }

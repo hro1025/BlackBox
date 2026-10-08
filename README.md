@@ -16,7 +16,7 @@ An agent on every machine reads system state from `/proc` and `/sys`, buffers it
 - [x] **6. Lifecycle events** — crash, stop and reboot detection
 - [x] **7. Shared protocol** — zod schemas, message union
 - [x] **8. Ingest server** — WebSocket, hello, authentication
-- [ ] **9. Agent connection** — reconnect with backoff and jitter
+- [x] **9. Agent connection** — reconnect with backoff and jitter
 - [ ] **10. Resume** — sequence numbers, replay, acknowledgements
 - [ ] **11. Server storage** — SQLite, Drizzle, retention
 - [ ] **12. Rules** — thresholds, silence, clock skew

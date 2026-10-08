@@ -2,6 +2,7 @@ import { recordCpu } from "./src/recorders/cpu";
 import { recordLoadAvg } from "./src/recorders/loadavg";
 import { recordMemory } from "./src/recorders/memory";
 import { recordNetwork } from "./src/recorders/netdev";
+import { connect, sendPending } from "./src/connection/socket";
 import { recordThermal } from "./src/recorders/thermal";
 import { addSample, flush } from "./src/storage/buffer";
 import {
@@ -93,6 +94,11 @@ function recordAll(): void {
   void recordThermal();
 }
 
+function flushAndSend(): void {
+  flush();
+  sendPending();
+}
+
 if (bootId !== undefined) {
   await checkStartup(bootId);
 }
@@ -100,5 +106,9 @@ if (bootId !== undefined) {
 process.on("SIGINT", requestStop);
 process.on("SIGTERM", requestStop);
 
+if (bootId !== undefined) {
+  connect(bootId);
+}
+
 setInterval(recordAll, SAMPLE_INTERVAL_MS);
-setInterval(flush, FLUSH_INTERVAL_MS);
+setInterval(flushAndSend, FLUSH_INTERVAL_MS);

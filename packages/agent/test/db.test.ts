@@ -1,7 +1,12 @@
 import { expect, test } from "bun:test";
 
 process.env.BLACKBOX_DB = ":memory:";
-const { insertSamples, readSamplesAfter } = await import("../src/storage/db");
+const { insertSamples, readLastSequence, readSamplesAfter } =
+  await import("../src/storage/db");
+
+test("9.2 last sequence is 0 on an empty database", () => {
+  expect(readLastSequence()).toBe(0);
+});
 
 test("5.5 reader returns exactly the samples after a position", () => {
   insertSamples([
@@ -16,4 +21,15 @@ test("5.5 reader returns exactly the samples after a position", () => {
   ]);
 
   expect(readSamplesAfter(3)).toEqual([]);
+});
+
+test("9.2 last sequence is the highest sequence written", () => {
+  const before = readLastSequence();
+
+  insertSamples([
+    { kind: "memory", sampledAtMs: 4000, payload: { totalKb: 4 } },
+    { kind: "cpu", sampledAtMs: 5000, payload: { user: 5 } },
+  ]);
+
+  expect(readLastSequence()).toBe(before + 2);
 });

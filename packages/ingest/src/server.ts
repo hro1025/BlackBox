@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { MessageSchema } from "@blackbox/shared";
+import type { WelcomeMessage } from "@blackbox/shared";
 
 type ConnectionState = "authenticating" | "streaming" | "closed";
 
@@ -8,10 +9,10 @@ type ConnectionData = {
 };
 
 const HELLO_TIMEOUT_MS = 5000;
+const IDLE_TIMEOUT_SECONDS = 30;
 
 const AGENTS_PATH = `${import.meta.dir}/../agents.json`;
 
-// Safe: agents.json is written by the operator, not received from the network.
 const agentTokens = (await Bun.file(AGENTS_PATH).json()) as Record<
   string,
   string
@@ -51,6 +52,8 @@ export const server = Bun.serve({
   },
   websocket: {
     data: {} as ConnectionData,
+    idleTimeout: IDLE_TIMEOUT_SECONDS,
+    sendPings: true,
     open(ws) {
       console.log(`open ${ws.remoteAddress} ${ws.data.state}`);
 
@@ -94,7 +97,20 @@ export const server = Bun.serve({
 
         ws.data.state = "streaming";
         console.log(`authenticated ${incoming.agentId}`);
+        const welcome: WelcomeMessage = {
+          type: "welcome",
+          lastSeq: 0,
+        };
+        ws.send(JSON.stringify(welcome));
         return;
+      }
+
+      if (ws.data.state === "streaming") {
+        if (incoming.type === "sample" || incoming.type === "event") {
+          console.log(
+            `${incoming.type} seq=${incoming.seq} kind=${incoming.kind}`,
+          );
+        }
       }
     },
     close(ws, code, reason) {
