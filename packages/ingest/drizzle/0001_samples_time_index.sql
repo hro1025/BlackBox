@@ -1,0 +1,1 @@
+CREATE INDEX `samples_agent_time_idx` ON `samples` (`agentId`,`sampledAtMs`);

@@ -4,7 +4,7 @@ import type {
   HelloMessage,
   SampleMessage,
 } from "@blackbox/shared";
-import { readLastSequence, readSamplesAfter } from "../storage/db";
+import { readSamplesAfter } from "../storage/db";
 import { reconnectDelayMs } from "./backoff";
 
 const SERVER_URL = "ws://localhost:7070/agent";
@@ -13,6 +13,8 @@ const TOKEN = "secret";
 const PROTOCOL_VERSION = 1;
 const PING_INTERVAL_MS = 5000;
 const DEAD_AFTER_MS = 15000;
+const SEND_BATCH_SIZE = 1000;
+const MAX_BUFFERED_BYTES = 1_000_000;
 
 let activeSocket: WebSocket | undefined;
 let lastSentSequence: number | undefined;
@@ -76,16 +78,7 @@ export function connect(bootId: string): void {
     if (incoming.type === "welcome") {
       console.log(`Welcome from server, lastSeq ${incoming.lastSeq}`);
       reconnectAttempt = 0;
-
-      try {
-        lastSentSequence = readLastSequence();
-      } catch (error) {
-        if (error instanceof Error) {
-          console.error(`Failed to read last sequence: ${error.message}`);
-        } else {
-          console.error("Failed to read last sequence:", error);
-        }
-      }
+      lastSentSequence = incoming.lastSeq;
     }
   });
 
@@ -114,8 +107,13 @@ export function sendPending(): void {
     return;
   }
 
+  if (activeSocket.bufferedAmount > MAX_BUFFERED_BYTES) {
+    console.log(`Send paused: ${activeSocket.bufferedAmount} bytes waiting`);
+    return;
+  }
+
   try {
-    const rows = readSamplesAfter(lastSentSequence);
+    const rows = readSamplesAfter(lastSentSequence, SEND_BATCH_SIZE);
 
     for (const row of rows) {
       if (row.kind === "lifecycle") {

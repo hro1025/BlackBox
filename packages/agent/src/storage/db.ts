@@ -38,8 +38,8 @@ const deleteOldSamples = db.prepare(
   "DELETE FROM samples WHERE sampledAtMs < ?",
 );
 
-const selectSamplesAfter = db.prepare<StoredRow, [number]>(
-  "SELECT sequence, kind, sampledAtMs, payload FROM samples WHERE sequence > ? ORDER BY sequence",
+const selectSamplesAfter = db.prepare<StoredRow, [number, number]>(
+  "SELECT sequence, kind, sampledAtMs, payload FROM samples WHERE sequence > ? ORDER BY sequence LIMIT ?",
 );
 
 const selectLastSequence = db.prepare<LastSequenceRow, []>(
@@ -60,8 +60,11 @@ export function deleteSamplesOlderThan(cutoffMs: number): void {
   deleteOldSamples.run(cutoffMs);
 }
 
-export function readSamplesAfter(afterSequence: number): StoredSample[] {
-  const rows = selectSamplesAfter.all(afterSequence);
+export function readSamplesAfter(
+  afterSequence: number,
+  limit: number,
+): StoredSample[] {
+  const rows = selectSamplesAfter.all(afterSequence, limit);
 
   return rows.map((row) => ({
     sequence: row.sequence,

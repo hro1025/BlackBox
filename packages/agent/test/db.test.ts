@@ -15,12 +15,12 @@ test("5.5 reader returns exactly the samples after a position", () => {
     { kind: "loadavg", sampledAtMs: 3000, payload: { load1: 3 } },
   ]);
 
-  expect(readSamplesAfter(1)).toEqual([
+  expect(readSamplesAfter(1, 10)).toEqual([
     { sequence: 2, kind: "cpu", sampledAtMs: 2000, payload: { user: 2 } },
     { sequence: 3, kind: "loadavg", sampledAtMs: 3000, payload: { load1: 3 } },
   ]);
 
-  expect(readSamplesAfter(3)).toEqual([]);
+  expect(readSamplesAfter(3, 10)).toEqual([]);
 });
 
 test("9.2 last sequence is the highest sequence written", () => {
@@ -32,4 +32,10 @@ test("9.2 last sequence is the highest sequence written", () => {
   ]);
 
   expect(readLastSequence()).toBe(before + 2);
+});
+
+test("10.5 reader returns at most the requested number of samples", () => {
+  const rows = readSamplesAfter(0, 2);
+
+  expect(rows.map((row) => row.sequence)).toEqual([1, 2]);
 });

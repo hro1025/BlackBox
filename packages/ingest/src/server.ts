@@ -1,11 +1,18 @@
 import { timingSafeEqual } from "node:crypto";
 import { MessageSchema } from "@blackbox/shared";
 import type { WelcomeMessage } from "@blackbox/shared";
+import {
+  insertEvent,
+  insertSample,
+  readLastSequence,
+  recordAgentSeen,
+} from "./storage/db";
 
 type ConnectionState = "authenticating" | "streaming" | "closed";
 
 type ConnectionData = {
   state: ConnectionState;
+  agentId: string | undefined;
 };
 
 const HELLO_TIMEOUT_MS = 5000;
@@ -40,7 +47,7 @@ export const server = Bun.serve({
 
     if (url.pathname === "/agent") {
       const upgraded = server.upgrade(request, {
-        data: { state: "authenticating" },
+        data: { state: "authenticating", agentId: undefined },
       });
       if (upgraded) {
         return undefined;
@@ -95,21 +102,69 @@ export const server = Bun.serve({
           return;
         }
 
+        let lastSeq: number;
+        try {
+          recordAgentSeen(incoming.agentId, incoming.bootId);
+          lastSeq = readLastSequence(incoming.agentId);
+        } catch (error) {
+          if (error instanceof Error) {
+            console.error(`Failed to read storage: ${error.message}`);
+          } else {
+            console.error("Failed to read storage:", error);
+          }
+          ws.close(1011, "Storage error");
+          return;
+        }
+
         ws.data.state = "streaming";
+        ws.data.agentId = incoming.agentId;
         console.log(`authenticated ${incoming.agentId}`);
+
         const welcome: WelcomeMessage = {
           type: "welcome",
-          lastSeq: 0,
+          lastSeq: lastSeq,
         };
         ws.send(JSON.stringify(welcome));
+        console.log(`welcome ${incoming.agentId} lastSeq=${lastSeq}`);
         return;
       }
 
-      if (ws.data.state === "streaming") {
+      if (ws.data.state === "streaming" && ws.data.agentId !== undefined) {
         if (incoming.type === "sample" || incoming.type === "event") {
-          console.log(
-            `${incoming.type} seq=${incoming.seq} kind=${incoming.kind}`,
-          );
+          try {
+            let stored: boolean;
+            if (incoming.type === "sample") {
+              stored = insertSample({
+                agentId: ws.data.agentId,
+                sequence: incoming.seq,
+                kind: incoming.kind,
+                sampledAtMs: incoming.sampledAtMs,
+                payload: incoming.data,
+              });
+            } else {
+              stored = insertEvent({
+                agentId: ws.data.agentId,
+                sequence: incoming.seq,
+                kind: incoming.kind,
+                sampledAtMs: incoming.sampledAtMs,
+                detail: incoming.detail,
+              });
+            }
+
+            if (stored) {
+              console.log(
+                `${incoming.type} seq=${incoming.seq} kind=${incoming.kind}`,
+              );
+            } else {
+              console.log(`duplicate seq=${incoming.seq} ignored`);
+            }
+          } catch (error) {
+            if (error instanceof Error) {
+              console.error(`Failed to store message: ${error.message}`);
+            } else {
+              console.error("Failed to store message:", error);
+            }
+          }
         }
       }
     },
