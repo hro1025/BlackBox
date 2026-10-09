@@ -1,6 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import { MessageSchema } from "@blackbox/shared";
 import type { WelcomeMessage } from "@blackbox/shared";
+import { api } from "./api";
+import { liveTopic, toLivePoints } from "./live";
 import { checkMemory } from "./rules/memory";
 import { noteHeard } from "./rules/silence";
 import { checkSkew } from "./rules/skew";
@@ -15,10 +17,18 @@ import {
 
 type ConnectionState = "authenticating" | "streaming" | "closed";
 
-type ConnectionData = {
+type AgentConnection = {
+  role: "agent";
   state: ConnectionState;
   agentId: string | undefined;
 };
+
+type ViewerConnection = {
+  role: "viewer";
+  agentId: string;
+};
+
+type ConnectionData = AgentConnection | ViewerConnection;
 
 const HELLO_TIMEOUT_MS = 5000;
 const IDLE_TIMEOUT_SECONDS = 30;
@@ -47,12 +57,12 @@ function isValidToken(agentId: string, token: string): boolean {
 
 export const server = Bun.serve({
   port: 7070,
-  fetch(request, server): Response | undefined {
+  fetch(request, server): Response | Promise<Response> | undefined {
     const url = new URL(request.url);
 
     if (url.pathname === "/agent") {
       const upgraded = server.upgrade(request, {
-        data: { state: "authenticating", agentId: undefined },
+        data: { role: "agent", state: "authenticating", agentId: undefined },
       });
       if (upgraded) {
         return undefined;
@@ -60,23 +70,50 @@ export const server = Bun.serve({
       return new Response("WebSocket upgrade failed", { status: 400 });
     }
 
-    return new Response("Not found", { status: 404 });
+    if (url.pathname === "/live") {
+      const agentId = url.searchParams.get("agentId");
+      if (agentId === null || agentId === "") {
+        return new Response("agentId is required", { status: 400 });
+      }
+
+      const upgraded = server.upgrade(request, {
+        data: { role: "viewer", agentId: agentId },
+      });
+      if (upgraded) {
+        return undefined;
+      }
+      return new Response("WebSocket upgrade failed", { status: 400 });
+    }
+
+    return api.fetch(request);
   },
   websocket: {
     data: {} as ConnectionData,
     idleTimeout: IDLE_TIMEOUT_SECONDS,
     sendPings: true,
     open(ws) {
-      console.log(`open ${ws.remoteAddress} ${ws.data.state}`);
+      const connection = ws.data;
+
+      if (connection.role === "viewer") {
+        ws.subscribe(liveTopic(connection.agentId));
+        console.log(`viewer open ${ws.remoteAddress} ${connection.agentId}`);
+        return;
+      }
+
+      console.log(`open ${ws.remoteAddress} ${connection.state}`);
 
       setTimeout(() => {
-        if (ws.data.state === "authenticating") {
+        if (connection.state === "authenticating") {
           console.log(`hello timeout ${ws.remoteAddress}`);
           ws.close(1008, "Hello timeout");
         }
       }, HELLO_TIMEOUT_MS);
     },
     message(ws, message) {
+      if (ws.data.role === "viewer") {
+        return;
+      }
+
       let raw: unknown;
       try {
         raw = JSON.parse(String(message));
@@ -191,6 +228,19 @@ export const server = Bun.serve({
               console.log(`duplicate seq=${incoming.seq} ignored`);
             }
 
+            if (stored && incoming.type === "sample") {
+              const points = toLivePoints(ws.data.agentId, {
+                sequence: incoming.seq,
+                kind: incoming.kind,
+                sampledAtMs: incoming.sampledAtMs,
+                payload: incoming.data,
+              });
+
+              for (const point of points) {
+                ws.publish(liveTopic(ws.data.agentId), JSON.stringify(point));
+              }
+            }
+
             if (
               stored &&
               incoming.type === "sample" &&
@@ -237,6 +287,11 @@ export const server = Bun.serve({
       }
     },
     close(ws, code, reason) {
+      if (ws.data.role === "viewer") {
+        console.log(`viewer close ${ws.remoteAddress} code=${code}`);
+        return;
+      }
+
       ws.data.state = "closed";
       console.log(`close ${ws.remoteAddress} code=${code} reason=${reason}`);
     },

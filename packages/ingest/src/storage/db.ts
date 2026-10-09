@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
-import { and, asc, count, eq, gte, isNull, lt, max } from "drizzle-orm";
+import type { AgentInfo } from "@blackbox/shared";
+import { and, asc, count, desc, eq, gte, isNull, lt, max } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { agents, events, ruleEvents, samples } from "./schema";
@@ -35,6 +36,14 @@ export type StoredSample = {
   kind: string;
   sampledAtMs: number;
   payload: unknown;
+};
+
+export type TimelineEvent = {
+  source: "agent" | "server";
+  kind: string;
+  startedAtMs: number;
+  endedAtMs: number | undefined;
+  detail: unknown;
 };
 
 export type RaisedRuleEvent = {
@@ -164,7 +173,17 @@ export function readSamplesBetween(
   agentId: string,
   fromMs: number,
   toMs: number,
+  kind?: string,
 ): StoredSample[] {
+  const conditions = [
+    eq(samples.agentId, agentId),
+    gte(samples.sampledAtMs, fromMs),
+    lt(samples.sampledAtMs, toMs),
+  ];
+  if (kind !== undefined) {
+    conditions.push(eq(samples.kind, kind));
+  }
+
   const rows = db
     .select({
       sequence: samples.sequence,
@@ -173,13 +192,7 @@ export function readSamplesBetween(
       payload: samples.payload,
     })
     .from(samples)
-    .where(
-      and(
-        eq(samples.agentId, agentId),
-        gte(samples.sampledAtMs, fromMs),
-        lt(samples.sampledAtMs, toMs),
-      ),
-    )
+    .where(and(...conditions))
     .orderBy(asc(samples.sampledAtMs))
     .all();
 
@@ -189,6 +202,77 @@ export function readSamplesBetween(
     sampledAtMs: row.sampledAtMs,
     payload: JSON.parse(row.payload) as unknown,
   }));
+}
+
+function readLastReceivedAtMs(agentId: string): number {
+  const sampleRow = db
+    .select({ receivedAtMs: samples.receivedAtMs })
+    .from(samples)
+    .where(eq(samples.agentId, agentId))
+    .orderBy(desc(samples.sequence))
+    .limit(1)
+    .get();
+
+  const eventRow = db
+    .select({ receivedAtMs: events.receivedAtMs })
+    .from(events)
+    .where(eq(events.agentId, agentId))
+    .orderBy(desc(events.sequence))
+    .limit(1)
+    .get();
+
+  return Math.max(sampleRow?.receivedAtMs ?? 0, eventRow?.receivedAtMs ?? 0);
+}
+
+export function readAgents(): AgentInfo[] {
+  const rows = db.select().from(agents).orderBy(asc(agents.agentId)).all();
+
+  return rows.map((row) => ({
+    agentId: row.agentId,
+    firstSeenAtMs: row.firstSeenAtMs,
+    lastSeenAtMs: Math.max(row.lastSeenAtMs, readLastReceivedAtMs(row.agentId)),
+    lastBootId: row.lastBootId,
+  }));
+}
+
+export function readTimeline(agentId: string): TimelineEvent[] {
+  const agentRows = db
+    .select()
+    .from(events)
+    .where(eq(events.agentId, agentId))
+    .orderBy(desc(events.sampledAtMs))
+    .all();
+
+  const ruleRows = db
+    .select()
+    .from(ruleEvents)
+    .where(eq(ruleEvents.agentId, agentId))
+    .orderBy(desc(ruleEvents.startedAtMs))
+    .all();
+
+  const timeline: TimelineEvent[] = [];
+
+  for (const row of agentRows) {
+    timeline.push({
+      source: "agent",
+      kind: row.kind,
+      startedAtMs: row.sampledAtMs,
+      endedAtMs: undefined,
+      detail: JSON.parse(row.detail) as unknown,
+    });
+  }
+
+  for (const row of ruleRows) {
+    timeline.push({
+      source: "server",
+      kind: row.kind,
+      startedAtMs: row.startedAtMs,
+      endedAtMs: row.endedAtMs ?? undefined,
+      detail: JSON.parse(row.detail) as unknown,
+    });
+  }
+
+  return timeline.sort((a, b) => b.startedAtMs - a.startedAtMs);
 }
 
 export function deleteSamplesOlderThan(cutoffMs: number): number {
