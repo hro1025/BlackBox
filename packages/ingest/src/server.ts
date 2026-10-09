@@ -57,6 +57,7 @@ function isValidToken(agentId: string, token: string): boolean {
 
 export const server = Bun.serve({
   port: 7070,
+  hostname: "127.0.0.1",
   fetch(request, server): Response | Promise<Response> | undefined {
     const url = new URL(request.url);
 
