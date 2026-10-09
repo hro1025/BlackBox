@@ -41,3 +41,12 @@ export const events = sqliteTable(
   },
   (table) => [primaryKey({ columns: [table.agentId, table.sequence] })],
 );
+
+export const ruleEvents = sqliteTable("ruleEvents", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  agentId: text().notNull(),
+  kind: text().notNull(),
+  startedAtMs: integer().notNull(),
+  endedAtMs: integer(),
+  detail: text().notNull(),
+});

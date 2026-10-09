@@ -16,6 +16,22 @@ const DEAD_AFTER_MS = 15000;
 const SEND_BATCH_SIZE = 1000;
 const MAX_BUFFERED_BYTES = 1_000_000;
 
+function readClockOffsetMs(): number {
+  const raw = process.env.BLACKBOX_CLOCK_OFFSET_MS;
+  if (raw === undefined) {
+    return 0;
+  }
+
+  const value = Number(raw);
+  if (!Number.isFinite(value)) {
+    throw new Error(`BLACKBOX_CLOCK_OFFSET_MS must be a number, got "${raw}"`);
+  }
+
+  return value;
+}
+
+const CLOCK_OFFSET_MS = readClockOffsetMs();
+
 let activeSocket: WebSocket | undefined;
 let lastSentSequence: number | undefined;
 let reconnectAttempt = 0;
@@ -39,6 +55,9 @@ export function connect(bootId: string): void {
 
   socket.addEventListener("open", () => {
     console.log(`Connected to ${SERVER_URL}`);
+    if (CLOCK_OFFSET_MS !== 0) {
+      console.log(`Test clock offset active: ${CLOCK_OFFSET_MS} ms`);
+    }
     lastHeardAtMs = Date.now();
 
     const hello: HelloMessage = {
@@ -121,7 +140,7 @@ export function sendPending(): void {
           type: "event",
           seq: row.sequence,
           kind: row.kind,
-          sampledAtMs: row.sampledAtMs,
+          sampledAtMs: row.sampledAtMs + CLOCK_OFFSET_MS,
           detail: row.payload,
         };
         activeSocket.send(JSON.stringify(message));
@@ -130,7 +149,7 @@ export function sendPending(): void {
           type: "sample",
           seq: row.sequence,
           kind: row.kind,
-          sampledAtMs: row.sampledAtMs,
+          sampledAtMs: row.sampledAtMs + CLOCK_OFFSET_MS,
           data: row.payload,
         };
         activeSocket.send(JSON.stringify(message));

@@ -15,6 +15,13 @@
       "when": 1791458996856,
       "tag": "0001_samples_time_index",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791538868717,
+      "tag": "0002_rule_events",
+      "breakpoints": true
     }
   ]
 }

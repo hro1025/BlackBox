@@ -1,4 +1,5 @@
-import type { CpuTimes } from "./schemas/cpu.ts";
+import type { CpuTimes } from "./schemas/cpu";
+import type { MemoryStats } from "./schemas/memory";
 
 export function bytesPerSecond(
   previousBytes: number,
@@ -43,4 +44,12 @@ export function cpuUsagePercent(previous: CpuTimes, current: CpuTimes): number {
     return 0;
   }
   return ((totalDelta - idleDelta) / totalDelta) * 100;
+}
+
+export function memoryUsedPercent(stats: MemoryStats): number {
+  if (stats.totalKb === 0) {
+    return 0;
+  }
+
+  return ((stats.totalKb - stats.availableKb) / stats.totalKb) * 100;
 }

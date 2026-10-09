@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
-import { and, asc, count, eq, gte, lt, max } from "drizzle-orm";
+import { and, asc, count, eq, gte, isNull, lt, max } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import { agents, events, samples } from "./schema";
+import { agents, events, ruleEvents, samples } from "./schema";
 
 const DB_PATH =
   process.env.BLACKBOX_INGEST_DB ?? `${import.meta.dir}/ingest.db`;
@@ -35,6 +35,13 @@ export type StoredSample = {
   kind: string;
   sampledAtMs: number;
   payload: unknown;
+};
+
+export type RaisedRuleEvent = {
+  agentId: string;
+  kind: string;
+  startedAtMs: number;
+  detail: unknown;
 };
 
 export function recordAgentSeen(agentId: string, bootId: string): void {
@@ -88,6 +95,53 @@ export function insertEvent(event: ReceivedEvent): boolean {
     .all();
 
   return inserted.length === 1;
+}
+
+export function insertRuleEvent(event: RaisedRuleEvent): number {
+  const inserted = db
+    .insert(ruleEvents)
+    .values({
+      agentId: event.agentId,
+      kind: event.kind,
+      startedAtMs: event.startedAtMs,
+      detail: JSON.stringify(event.detail),
+    })
+    .returning({ id: ruleEvents.id })
+    .get();
+
+  return inserted.id;
+}
+
+export function endRuleEvent(
+  agentId: string,
+  kind: string,
+  endedAtMs: number,
+): number {
+  const ended = db
+    .update(ruleEvents)
+    .set({ endedAtMs: endedAtMs })
+    .where(
+      and(
+        eq(ruleEvents.agentId, agentId),
+        eq(ruleEvents.kind, kind),
+        isNull(ruleEvents.endedAtMs),
+      ),
+    )
+    .returning({ id: ruleEvents.id })
+    .all();
+
+  return ended.length;
+}
+
+export function closeOpenRuleEvents(endedAtMs: number): number {
+  const ended = db
+    .update(ruleEvents)
+    .set({ endedAtMs: endedAtMs })
+    .where(isNull(ruleEvents.endedAtMs))
+    .returning({ id: ruleEvents.id })
+    .all();
+
+  return ended.length;
 }
 
 export function readLastSequence(agentId: string): number {
@@ -162,6 +216,16 @@ export function countEvents(agentId: string): number {
     .select({ total: count() })
     .from(events)
     .where(eq(events.agentId, agentId))
+    .get();
+
+  return row?.total ?? 0;
+}
+
+export function countRuleEvents(agentId: string): number {
+  const row = db
+    .select({ total: count() })
+    .from(ruleEvents)
+    .where(eq(ruleEvents.agentId, agentId))
     .get();
 
   return row?.total ?? 0;

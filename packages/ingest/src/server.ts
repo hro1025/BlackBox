@@ -1,8 +1,13 @@
 import { timingSafeEqual } from "node:crypto";
 import { MessageSchema } from "@blackbox/shared";
 import type { WelcomeMessage } from "@blackbox/shared";
+import { checkMemory } from "./rules/memory";
+import { noteHeard } from "./rules/silence";
+import { checkSkew } from "./rules/skew";
 import {
+  endRuleEvent,
   insertEvent,
+  insertRuleEvent,
   insertSample,
   readLastSequence,
   recordAgentSeen,
@@ -132,6 +137,33 @@ export const server = Bun.serve({
       if (ws.data.state === "streaming" && ws.data.agentId !== undefined) {
         if (incoming.type === "sample" || incoming.type === "event") {
           try {
+            const nowMs = Date.now();
+            if (noteHeard(ws.data.agentId, nowMs)) {
+              endRuleEvent(ws.data.agentId, "silence", nowMs);
+              console.log(`cleared silence agent=${ws.data.agentId}`);
+            }
+
+            const skew = checkSkew(
+              ws.data.agentId,
+              incoming.sampledAtMs,
+              nowMs,
+            );
+            if (skew.raise) {
+              const id = insertRuleEvent({
+                agentId: ws.data.agentId,
+                kind: "clock-skew",
+                startedAtMs: nowMs,
+                detail: { aheadMs: skew.aheadMs },
+              });
+              console.log(
+                `raised clock-skew id=${id} agent=${ws.data.agentId} ahead=${Math.round(skew.aheadMs / 1000)}s`,
+              );
+            }
+            if (skew.clear) {
+              endRuleEvent(ws.data.agentId, "clock-skew", nowMs);
+              console.log(`cleared clock-skew agent=${ws.data.agentId}`);
+            }
+
             let stored: boolean;
             if (incoming.type === "sample") {
               stored = insertSample({
@@ -158,11 +190,47 @@ export const server = Bun.serve({
             } else {
               console.log(`duplicate seq=${incoming.seq} ignored`);
             }
+
+            if (
+              stored &&
+              incoming.type === "sample" &&
+              incoming.kind === "memory"
+            ) {
+              const check = checkMemory(
+                ws.data.agentId,
+                incoming.sampledAtMs,
+                incoming.data,
+              );
+              const used = check.usedPercent.toFixed(1);
+
+              if (check.raise) {
+                const id = insertRuleEvent({
+                  agentId: ws.data.agentId,
+                  kind: "memory-high",
+                  startedAtMs: incoming.sampledAtMs,
+                  detail: { usedPercent: check.usedPercent },
+                });
+                console.log(
+                  `raised memory-high id=${id} agent=${ws.data.agentId} used=${used}%`,
+                );
+              }
+
+              if (check.clear) {
+                endRuleEvent(
+                  ws.data.agentId,
+                  "memory-high",
+                  incoming.sampledAtMs,
+                );
+                console.log(
+                  `cleared memory-high agent=${ws.data.agentId} used=${used}%`,
+                );
+              }
+            }
           } catch (error) {
             if (error instanceof Error) {
-              console.error(`Failed to store message: ${error.message}`);
+              console.error(`Failed to handle message: ${error.message}`);
             } else {
-              console.error("Failed to store message:", error);
+              console.error("Failed to handle message:", error);
             }
           }
         }
