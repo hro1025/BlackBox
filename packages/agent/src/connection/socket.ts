@@ -7,9 +7,6 @@ import type {
 import { readSamplesAfter } from "../storage/db";
 import { reconnectDelayMs } from "./backoff";
 
-const SERVER_URL = "ws://localhost:7070/agent";
-const AGENT_ID = "test-agent";
-const TOKEN = "secret";
 const PROTOCOL_VERSION = 1;
 const PING_INTERVAL_MS = 5000;
 const DEAD_AFTER_MS = 15000;
@@ -32,12 +29,18 @@ function readClockOffsetMs(): number {
 
 const CLOCK_OFFSET_MS = readClockOffsetMs();
 
+export type ConnectionSettings = {
+  serverUrl: string;
+  agentId: string;
+  token: string;
+};
+
 let activeSocket: WebSocket | undefined;
 let lastSentSequence: number | undefined;
 let reconnectAttempt = 0;
 
-export function connect(bootId: string): void {
-  const socket = new WebSocket(SERVER_URL);
+export function connect(bootId: string, settings: ConnectionSettings): void {
+  const socket = new WebSocket(settings.serverUrl);
   activeSocket = socket;
   let lastHeardAtMs = Date.now();
 
@@ -54,7 +57,7 @@ export function connect(bootId: string): void {
   }, PING_INTERVAL_MS);
 
   socket.addEventListener("open", () => {
-    console.log(`Connected to ${SERVER_URL}`);
+    console.log(`Connected to ${settings.serverUrl}`);
     if (CLOCK_OFFSET_MS !== 0) {
       console.log(`Test clock offset active: ${CLOCK_OFFSET_MS} ms`);
     }
@@ -62,8 +65,8 @@ export function connect(bootId: string): void {
 
     const hello: HelloMessage = {
       type: "hello",
-      agentId: AGENT_ID,
-      token: TOKEN,
+      agentId: settings.agentId,
+      token: settings.token,
       protocolVersion: PROTOCOL_VERSION,
       bootId: bootId,
     };
@@ -112,7 +115,7 @@ export function connect(bootId: string): void {
     console.log(`Reconnecting in ${Math.round(delayMs)} ms`);
 
     setTimeout(() => {
-      connect(bootId);
+      connect(bootId, settings);
     }, delayMs);
   });
 

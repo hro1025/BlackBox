@@ -2,6 +2,8 @@ import { recordCpu } from "./src/recorders/cpu";
 import { recordLoadAvg } from "./src/recorders/loadavg";
 import { recordMemory } from "./src/recorders/memory";
 import { recordNetwork } from "./src/recorders/netdev";
+import { loadConfig } from "./src/config";
+import type { AgentSettings } from "./src/config";
 import { connect, sendPending } from "./src/connection/socket";
 import { recordThermal } from "./src/recorders/thermal";
 import { addSample, flush } from "./src/storage/buffer";
@@ -13,8 +15,23 @@ import {
 import { classifyStartup } from "./src/lifecycle/classify";
 import { deleteMarker, readMarker, writeMarker } from "./src/lifecycle/marker";
 
-const SAMPLE_INTERVAL_MS = 1000;
 const FLUSH_INTERVAL_MS = 1000;
+
+let settings: AgentSettings;
+
+try {
+  settings = await loadConfig();
+  console.log(
+    `Config: agent ${settings.agentId}, server ${settings.serverUrl}, sampling every ${settings.sampleIntervalMs} ms`,
+  );
+} catch (error) {
+  if (error instanceof Error) {
+    console.error(`Failed to load config: ${error.message}`);
+  } else {
+    console.error("Failed to load config:", error);
+  }
+  process.exit(1);
+}
 
 let bootId: string | undefined;
 
@@ -107,8 +124,8 @@ process.on("SIGINT", requestStop);
 process.on("SIGTERM", requestStop);
 
 if (bootId !== undefined) {
-  connect(bootId);
+  connect(bootId, settings);
 }
 
-setInterval(recordAll, SAMPLE_INTERVAL_MS);
+setInterval(recordAll, settings.sampleIntervalMs);
 setInterval(flushAndSend, FLUSH_INTERVAL_MS);

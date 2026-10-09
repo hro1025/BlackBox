@@ -1,0 +1,6 @@
+{
+  "serverUrl": "ws://localhost:7070/agent",
+  "agentId": "test-agent",
+  "tokenPath": "agent.token",
+  "sampleIntervalMs": 1000
+}

@@ -1,5 +1,6 @@
 export * from "./src/calculations";
 export * from "./src/schemas/api.ts";
+export * from "./src/schemas/config.ts";
 export * from "./src/schemas/cpu";
 export * from "./src/schemas/loadavg";
 export * from "./src/schemas/memory";
